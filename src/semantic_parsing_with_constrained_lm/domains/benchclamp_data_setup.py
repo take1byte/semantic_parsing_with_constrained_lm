@@ -17,7 +17,7 @@ from semantic_parsing_with_constrained_lm.domains.lispress_v2.sequence_creator i
 )
 from semantic_parsing_with_constrained_lm.domains.sql.sequence_creator import CoSqlUtterance
 from semantic_parsing_with_constrained_lm.domains.sql.sql_datum import SqlDatum
-from semantic_parsing_with_constrained_lm.paths import BENCH_CLAMP_PROCESSED_DATA_DIR_AZURE
+from semantic_parsing_with_constrained_lm.paths import BENCH_CLAMP_PROCESSED_DATA_DIR_AZURE, BENCH_CLAMP_PROCESSED_DATA_DIR, RUN_ON_AML
 from semantic_parsing_with_constrained_lm.sequence_creator import (
     IdentitySequenceCreator,
     SequenceCreator,
@@ -92,23 +92,40 @@ class BenchClampDatasetConfig(ClampDataConfig):
             dev_data_suffix = "low"
         else:
             dev_data_suffix = "medium"
-        train_data_file = f"{BENCH_CLAMP_PROCESSED_DATA_DIR_AZURE}/{self.dataset_name}/{domain_str}train_{self.split_name}.jsonl"
-        dev_data_file = f"{BENCH_CLAMP_PROCESSED_DATA_DIR_AZURE}/{self.dataset_name}/{domain_str}dev_{dev_data_suffix}.jsonl"
+
+        data_dir = BENCH_CLAMP_PROCESSED_DATA_DIR_AZURE if RUN_ON_AML else BENCH_CLAMP_PROCESSED_DATA_DIR
+        train_data_file = f"{data_dir}/{self.dataset_name}/{domain_str}train_{self.split_name}.jsonl"
+        dev_data_file = f"{data_dir}/{self.dataset_name}/{domain_str}dev_{dev_data_suffix}.jsonl"
+
         if self.eval_on_full_test:
-            test_data_file = f"{BENCH_CLAMP_PROCESSED_DATA_DIR_AZURE}/{self.dataset_name}/{domain_str}test_all.jsonl"
+            test_data_file = f"{data_dir}/{self.dataset_name}/{domain_str}test_all.jsonl"
         else:
-            test_data_file = f"{BENCH_CLAMP_PROCESSED_DATA_DIR_AZURE}/{self.dataset_name}/{domain_str}test.jsonl"
-        with BlobFile(str(train_data_file)) as bf:
-            print(f"Reading {train_data_file}")
-            train_data = data_from_textio(bf)
-        with BlobFile(str(dev_data_file)) as bf:
-            print(f"Reading {dev_data_file}")
-            dev_data = data_from_textio(bf)
-        with BlobFile(str(test_data_file)) as bf:
-            print(f"Reading {test_data_file}")
-            test_data = data_from_textio(bf)
+            test_data_file = f"{data_dir}/{self.dataset_name}/{domain_str}test.jsonl"
+
+        if RUN_ON_AML:
+            with BlobFile(str(train_data_file)) as bf:
+                print(f"Reading {train_data_file}")
+                train_data = data_from_textio(bf)
+            with BlobFile(str(dev_data_file)) as bf:
+                print(f"Reading {dev_data_file}")
+                dev_data = data_from_textio(bf)
+            with BlobFile(str(test_data_file)) as bf:
+                print(f"Reading {test_data_file}")
+                test_data = data_from_textio(bf)
+        else:
+            with open(str(train_data_file), 'r') as f:
+                print(f"Reading {train_data_file}")
+                train_data = data_from_textio(f)
+            with open(str(dev_data_file), 'r') as f:
+                print(f"Reading {dev_data_file}")
+                dev_data = data_from_textio(f)
+            with open(str(test_data_file), 'r') as f:
+                print(f"Reading {test_data_file}")
+                test_data = data_from_textio(f)
+
         if self.merge_train_and_dev:
             train_data.extend(dev_data)
+
         return (
             self.modify_data_with_sequence_creator(train_data),
             self.modify_data_with_sequence_creator(dev_data),
